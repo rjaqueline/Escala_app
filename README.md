@@ -51,6 +51,13 @@ O **Escala+** oferece:
 - Android
 
 ---
+## Desenvolvimento
+
+O aplicativo foi desenvolvido do levantamento da necessidade até a publicação e manutenção.
+
+A lógica da escala foi modelada para calcular os ciclos 12x8 das oito turmas, permitindo que as consultas sejam realizadas localmente, sem dependência de conexão com a internet.
+
+O projeto também passou por melhorias e correções a partir do feedback de usuários em ambiente real de operação.
 
 ## Dados técnicos
 
@@ -68,7 +75,6 @@ O aplicativo foi desenvolvido para facilitar a organização das escalas de trab
 
 ---
 
-## Autor
+## Autoria
 
-Jaqueline Batista  
-Mineração Taboca
+Desenvolvido por **Jaqueline Batista**.
