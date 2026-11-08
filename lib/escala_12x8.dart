@@ -14,8 +14,12 @@ final Map<String, DateTime> datasBaseEscalas = {
   "2C": DateTime(2026, 2, 18),
 };
 
-Turno calcularTurno(DateTime dia, DateTime base) {
+// Posição (0-19) de um dia dentro do ciclo de 20 dias (12 embarcado + 8 folga)
+int cicloNoDia(DateTime dia, DateTime base) {
   final diff = norm(dia).difference(norm(base)).inDays;
-  final ciclo = ((diff % 20) + 20) % 20;
-  return ciclo < 12 ? Turno.embarque : Turno.folga;
+  return ((diff % 20) + 20) % 20;
+}
+
+Turno calcularTurno(DateTime dia, DateTime base) {
+  return cicloNoDia(dia, base) < 12 ? Turno.embarque : Turno.folga;
 }

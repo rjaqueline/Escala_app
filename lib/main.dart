@@ -1,3 +1,6 @@
+// ============================================================
+// ESCALA+ — Redesign UI 
+// ============================================================
 // Imports organizados
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -8,7 +11,11 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
-import 'proximo_mes_page.dart'; // tela de próximo mês
+import 'package:package_info_plus/package_info_plus.dart';
+
+import 'escala_12x8.dart';
+import 'proximo_mes_page.dart';
+import 'perfil_selecao_page.dart';
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
@@ -18,7 +25,6 @@ void main() async {
   tz.initializeTimeZones();
   await initializeDateFormatting('pt_BR', null);
 
-  // Configuração de Notificações
   const AndroidInitializationSettings androidInitSettings =
       AndroidInitializationSettings('@mipmap/ic_launcher');
   const InitializationSettings initializationSettings = InitializationSettings(
@@ -29,48 +35,69 @@ void main() async {
   runApp(const EscalaApp());
 }
 
-class EscalaApp extends StatelessWidget {
+// ============================================================
+// CORES E CONSTANTES DO TEMA
+// ============================================================
+class AppColors {
+  static const Color primary = Color(0xFF3A2D6B); // Roxo profundo
+  static const Color primaryLight = Color(0xFF5B4FA0); // Roxo médio
+  static const Color primarySoft = Color(0xFFEDE9F6); // Roxo bem clarinho
+  static const Color surface = Color(0xFFF8F7FC); // Fundo geral
+  static const Color card = Colors.white;
+  static const Color textPrimary = Color(0xFF1A1A2E);
+  static const Color textSecondary = Color(0xFF6B6B80);
+  static const Color embarked = Color(0xFFD32F2F);
+  static const Color embarkedBg = Color(0xFFFFF0F0);
+  static const Color offDuty = Color(0xFF2E7D32);
+  static const Color offDutyBg = Color(0xFFF0F8F0);
+  static const Color accent = Color(0xFFFF9800);
+}
+
+class EscalaApp extends StatefulWidget {
   const EscalaApp({super.key});
+
+  @override
+  State<EscalaApp> createState() => _EscalaAppState();
+}
+
+class _EscalaAppState extends State<EscalaApp> {
+  bool _carregando = true;
+  String? _perfil;
+
+  @override
+  void initState() {
+    super.initState();
+    _verificarPerfil();
+  }
+
+  Future<void> _verificarPerfil() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _perfil = prefs.getString('perfil');
+      _carregando = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'ESCALA',
+      title: 'Escala+',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
         fontFamily: 'Poppins',
-        colorSchemeSeed: const Color(0xFF483D8B),
-        scaffoldBackgroundColor: const Color(0xFFF5F7FA),
+        scaffoldBackgroundColor: AppColors.surface,
         appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF483D8B),
-          foregroundColor: Colors.white,
-          centerTitle: true,
-          elevation: 2,
-          titleTextStyle: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-            fontFamily: 'Poppins',
-          ),
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF483D8B),
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(30),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            textStyle: const TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 12,
-              fontFamily: 'Poppins',
-            ),
-          ),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          scrolledUnderElevation: 0,
         ),
       ),
-      home: const EscalaHome(),
+      home: _carregando
+          ? const Scaffold(body: Center(child: CircularProgressIndicator()))
+          : _perfil == null
+          ? PerfilSelecaoPage(onPerfilSelecionado: () => _verificarPerfil())
+          : const EscalaHome(),
     );
   }
 }
@@ -83,7 +110,7 @@ class EscalaHome extends StatefulWidget {
 }
 
 class _EscalaHomeState extends State<EscalaHome> {
-  // ---------- ESTADO DA TELA ----------
+  // ---------- ESTADO ----------
   DateTime? dataBase;
   String status = "";
   int diasRestantes = 0;
@@ -91,20 +118,9 @@ class _EscalaHomeState extends State<EscalaHome> {
   String proximaMudancaTexto = "";
   int mesSelecionado = DateTime.now().month;
   int anoSelecionado = DateTime.now().year;
+  String perfil = "colaborador"; // "colaborador" ou "lider"
+  String appVersion = "";
 
-  // Datas base reais de 2026 para cada turma
-  static final Map<String, DateTime> datasBaseEscalas = {
-    "1B": DateTime(2026, 2, 1),
-    "2B": DateTime(2026, 2, 3),
-    "1D": DateTime(2026, 2, 6),
-    "2D": DateTime(2026, 2, 8),
-    "1A": DateTime(2026, 2, 11),
-    "2A": DateTime(2026, 2, 13),
-    "1C": DateTime(2026, 2, 16),
-    "2C": DateTime(2026, 2, 18),
-  };
-
-  // Lista fixa de turmas
   static const List<String> turmas = [
     "1A",
     "1B",
@@ -120,98 +136,38 @@ class _EscalaHomeState extends State<EscalaHome> {
   void initState() {
     super.initState();
     _loadPrefs();
+    _loadAppVersion();
   }
 
-  void _mostrarAvisos() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true, // permite maior altura
-      backgroundColor: Colors.transparent, // deixa flutuante
-      builder: (context) {
-        return FractionallySizedBox(
-          heightFactor: 0.55, // 🌟 modal mais alto e centralizado
-          child: Container(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-            ),
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  "Avisos Importantes",
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 16),
-
-                // 🔹 Aviso 1
-                Row(
-                  children: const [
-                    Icon(Icons.warning, color: Colors.amber),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        "Antes de realizar qualquer viagem, confirme sua escala no sistema oficial.",
-                        style: TextStyle(fontSize: 15),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-
-                // 🔹 Aviso 2
-                Row(
-                  children: const [
-                    Icon(Icons.lock_person_rounded, color: Colors.redAccent),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        "Não compartilhe sua escala com desconhecidos. Evite riscos de furtos durante sua viagem.",
-                        style: TextStyle(fontSize: 15),
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 10),
-              ],
-            ),
-          ),
-        );
-      },
-    );
+  Future<void> _loadAppVersion() async {
+    final info = await PackageInfo.fromPlatform();
+    setState(() {
+      appVersion = info.version;
+    });
   }
 
-  // SIM DEIXEI OS COMENTARIOS PORQUE ESSE É MEU PRIMEIRO APP
-  // ---------- LÓGICA DE DADOS (PERSISTÊNCIA) ----------
+  // ---------- PERSISTÊNCIA ----------
   Future<void> _loadPrefs() async {
     final prefs = await SharedPreferences.getInstance();
-
-    // Carrega só a turma salva (se tiver), senão usa 1A
-
     final turma = prefs.getString('turma') ?? '1A';
-
+    final perfilSalvo = prefs.getString('perfil') ?? 'colaborador';
     setState(() {
       turmaSelecionada = turma;
-      // dataBase vem SEMPRE da tabela fixa de 2024
+      perfil = perfilSalvo;
       dataBase = datasBaseEscalas[turmaSelecionada];
       _calcularStatus();
     });
   }
 
-  // ---------- LÓGICA DE INTERAÇÃO ----------
   void _onTurmaChanged(String? value) async {
     if (value != null) {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('turma', value);
-
       setState(() {
         turmaSelecionada = value;
         dataBase = datasBaseEscalas[turmaSelecionada];
         _calcularStatus();
       });
-
       await scheduleNextTravelNotification(dataBase!);
     }
   }
@@ -222,381 +178,917 @@ class _EscalaHomeState extends State<EscalaHome> {
     });
   }
 
-  // ---------- LÓGICA DE NEGÓCIO ----------
+  // Tipo de dia especial: embarque, desembarque, ou normal
+  String diaEspecial = ""; // "", "embarque", "desembarque"
 
+  // ---------- LÓGICA DE NEGÓCIO ----------
   void _calcularStatus() {
     if (dataBase == null) return;
+    final hojeLimpo = norm(DateTime.now());
+    final ciclo = cicloNoDia(hojeLimpo, dataBase!);
 
-    // Data de hoje sem horário
-    final agora = DateTime.now();
-    final hojeLimpo = DateTime(agora.year, agora.month, agora.day);
-
-    // A data-base REAL da turma (ex: 03/01/2024 para 1B)
-    final base = dataBase!;
-    final baseLimpa = DateTime(base.year, base.month, base.day);
-
-    // Dias desde o primeiro embarque real daquela turma
-    final dias = hojeLimpo.difference(baseLimpa).inDays;
-
-    // Ciclo de 0 a 19 (12 embarcada + 8 folga)
-    final ciclo = ((dias % 20) + 20) % 20;
-
-    late DateTime proximaMudanca;
-
-    if (ciclo < 12) {
-      // 0 a 11 -> embarcada (incluindo dias de viagem)
-      status = "Embarcada";
-      diasRestantes = 12 - ciclo;
-
-      // Próximo desembarque (último dia embarcada: viagem de volta)
-      proximaMudanca = hojeLimpo.add(Duration(days: diasRestantes - 1));
+    // Detectar dia especial
+    if (ciclo == 0) {
+      diaEspecial = "embarque";
+    } else if (ciclo == 11) {
+      diaEspecial = "desembarque";
     } else {
-      // 12 a 19 -> folga
-      status = "De folga";
-      diasRestantes = 20 - ciclo;
-
-      // Próximo embarque (volta pra mina)
-      proximaMudanca = hojeLimpo.add(Duration(days: diasRestantes));
+      diaEspecial = "";
     }
 
+    late DateTime proximaMudanca;
+    if (ciclo < 12) {
+      status = "Embarcada";
+      diasRestantes = 12 - ciclo;
+      proximaMudanca = hojeLimpo.add(Duration(days: diasRestantes - 1));
+    } else {
+      status = "De folga";
+      diasRestantes = 20 - ciclo;
+      proximaMudanca = hojeLimpo.add(Duration(days: diasRestantes));
+    }
     final df = DateFormat('dd/MM/yyyy');
     proximaMudancaTexto = (status == "Embarcada")
         ? "Próximo desembarque: ${df.format(proximaMudanca)}"
         : "Próximo embarque: ${df.format(proximaMudanca)}";
   }
 
-  // ---------- UI ----------
-  @override
-  Widget build(BuildContext context) {
-    // 1️⃣ variável de controle (não aparece na tela)
-    final bool isEmbarcada = status == "Embarcada";
-
-    // 2️⃣ interface
-    return Scaffold(
-      appBar: AppBar(title: const Text("Escala")),
-
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
+  // ---------- CONFIGURAÇÕES ----------
+  void _mostrarConfiguracoes() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          margin: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+          ),
+          padding: const EdgeInsets.all(24),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Center(
-                child: Text(
-                  "Selecione sua turma",
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-              ),
-
-              const SizedBox(height: 12),
-
-              Align(
-                alignment: Alignment.centerRight,
-                child: IconButton(
-                  icon: const Icon(
-                    Icons.info_rounded,
-                    size: 28,
-                    color: Color(0xFF483D8B),
-                  ),
-                  onPressed: _mostrarAvisos,
-                ),
-              ),
-
-              Wrap(spacing: 8, runSpacing: 8, children: _buildTurmaButtons()),
-
-              const SizedBox(height: 24),
-
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: _atualizarStatusManual,
-                  icon: const Icon(Icons.refresh, size: 15),
-                  label: const Text("Atualizar Status"),
-                ),
-              ),
-
-              const SizedBox(height: 10),
-              _buildStatusCard(isEmbarcada),
-
-              const SizedBox(height: 20),
-
-              // 👇 MÊS + ANO (compactos e lado a lado)
               Row(
                 children: [
-                  Expanded(
-                    flex: 2,
-                    child: DropdownButtonFormField<int>(
-                      value: mesSelecionado,
-                      isDense: true,
-                      decoration: const InputDecoration(
-                        labelText: "Mês",
-                        border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 10,
-                        ),
-                      ),
-                      items: List.generate(12, (index) {
-                        final mes = index + 1;
-                        return DropdownMenuItem(
-                          value: mes,
-                          child: Text(
-                            toBeginningOfSentenceCase(
-                              DateFormat.MMMM(
-                                "pt_BR",
-                              ).format(DateTime(2026, mes)),
-                            )!,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        );
-                      }),
-                      onChanged: (value) {
-                        if (value == null) return;
-                        setState(() => mesSelecionado = value);
-                      },
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.settings_rounded,
+                      color: AppColors.primary,
+                      size: 24,
                     ),
                   ),
-
-                  const SizedBox(width: 10),
-
-                  Expanded(
-                    flex: 1,
-                    child: DropdownButtonFormField<int>(
-                      value: anoSelecionado,
-                      isDense: true,
-                      decoration: const InputDecoration(
-                        labelText: "Ano",
-                        border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 10,
-                        ),
-                      ),
-                      items: List.generate(15, (index) {
-                        final ano = DateTime.now().year - 5 + index;
-                        return DropdownMenuItem(
-                          value: ano,
-                          child: Text(ano.toString()),
-                        );
-                      }).toList(),
-                      onChanged: (value) {
-                        if (value == null) return;
-                        setState(() => anoSelecionado = value);
-                      },
+                  const SizedBox(width: 12),
+                  const Text(
+                    "Configurações",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
                     ),
                   ),
                 ],
               ),
+              const SizedBox(height: 24),
 
-              const SizedBox(height: 20),
+              // Perfil atual
+              const Text(
+                "Seu perfil",
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textSecondary,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 10),
 
-              // 🔘 BOTÃO
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  icon: const Icon(Icons.calendar_month),
-                  label: const Text("Ver escala do mês"),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => ProximoMesPage(
-                          escala: turmaSelecionada,
-                          mes: mesSelecionado,
-                          ano: anoSelecionado,
-                        ),
+              // Opção Colaborador
+              _buildPerfilOption(
+                icon: Icons.person_rounded,
+                titulo: "Colaborador",
+                descricao: "Escala simples e direta",
+                selecionado: perfil == 'colaborador',
+                onTap: () async {
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setString('perfil', 'colaborador');
+                  setState(() => perfil = 'colaborador');
+                  Navigator.pop(context);
+                },
+              ),
+              const SizedBox(height: 10),
+
+              // Opção Líder
+              _buildPerfilOption(
+                icon: Icons.groups_rounded,
+                titulo: "Líder",
+                descricao: "Veja movimentação de todas as turmas",
+                selecionado: perfil == 'lider',
+                onTap: () async {
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setString('perfil', 'lider');
+                  setState(() => perfil = 'lider');
+                  Navigator.pop(context);
+                },
+              ),
+
+              const SizedBox(height: 24),
+
+              // Divider
+              Container(height: 1, color: Colors.grey.withValues(alpha: 0.1)),
+              const SizedBox(height: 16),
+
+              // Sobre o app
+              Center(
+                child: Column(
+                  children: [
+                    Text(
+                      appVersion.isEmpty ? "Escala+" : "Escala+ v$appVersion",
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textSecondary.withValues(alpha: 0.6),
                       ),
-                    );
-                  },
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      "Desenvolvido por Jaqueline Batista",
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.textSecondary.withValues(alpha: 0.5),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPerfilOption({
+    required IconData icon,
+    required String titulo,
+    required String descricao,
+    required bool selecionado,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: selecionado
+              ? AppColors.primary.withValues(alpha: 0.08)
+              : Colors.grey.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: selecionado
+                ? AppColors.primary.withValues(alpha: 0.4)
+                : Colors.grey.withValues(alpha: 0.15),
+            width: selecionado ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              size: 22,
+              color: selecionado ? AppColors.primary : AppColors.textSecondary,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    titulo,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: selecionado
+                          ? AppColors.primary
+                          : AppColors.textPrimary,
+                    ),
+                  ),
+                  Text(
+                    descricao,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (selecionado)
+              const Icon(
+                Icons.check_circle_rounded,
+                color: AppColors.primary,
+                size: 22,
+              ),
+          ],
         ),
       ),
     );
   }
 
-  List<Widget> _buildTurmaButtons() {
-    return turmas.map((t) {
-      final selecionada = (turmaSelecionada == t);
-
-      return SizedBox(
-        width: 70, // menor e mais elegante
-        height: 42, // altura ajustada também
-        child: ElevatedButton(
-          onPressed: () => _onTurmaChanged(t),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: selecionada
-                ? const Color(0xFF483D8B)
-                : Colors.white,
-            foregroundColor: selecionada
-                ? Colors.white
-                : const Color(0xFF483D8B),
-            side: const BorderSide(color: Color(0xFF483D8B), width: 1.2),
+  // ---------- AVISOS ----------
+  void _mostrarAvisos() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          margin: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
           ),
-          child: Text(t, style: const TextStyle(fontWeight: FontWeight.w600)),
-        ),
-      );
-    }).toList();
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.accent.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      Icons.campaign_rounded,
+                      color: AppColors.accent,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    "Avisos Importantes",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              _buildAvisoItem(
+                icon: Icons.warning_amber_rounded,
+                color: AppColors.accent,
+                text:
+                    "Antes de realizar qualquer viagem, confirme sua escala no sistema oficial.",
+              ),
+              const SizedBox(height: 14),
+              _buildAvisoItem(
+                icon: Icons.shield_rounded,
+                color: AppColors.embarked,
+                text:
+                    "Não compartilhe sua escala com desconhecidos. Evite riscos de furtos durante sua viagem.",
+              ),
+              const SizedBox(height: 12),
+            ],
+          ),
+        );
+      },
+    );
   }
 
+  Widget _buildAvisoItem({
+    required IconData icon,
+    required Color color,
+    required String text,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: color, size: 20),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(
+              fontSize: 14,
+              color: AppColors.textSecondary,
+              height: 1.4,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ============================================================
+  // UI PRINCIPAL
+  // ============================================================
+  @override
+  Widget build(BuildContext context) {
+    final bool isEmbarcada = status == "Embarcada";
+
+    return Scaffold(
+      body: CustomScrollView(
+        slivers: [
+          // --- HEADER ROXO COM GRADIENTE ---
+          SliverToBoxAdapter(
+            child: Container(
+              width: double.infinity,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFF3A2D6B), Color(0xFF5B4FA0)],
+                ),
+                borderRadius: BorderRadius.only(
+                  bottomLeft: Radius.circular(28),
+                  bottomRight: Radius.circular(28),
+                ),
+              ),
+              child: SafeArea(
+                bottom: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 28),
+                  child: Column(
+                    children: [
+                      // Título + botões
+                      Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              "Escala+",
+                              style: TextStyle(
+                                fontSize: 26,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                                letterSpacing: -0.5,
+                              ),
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: _mostrarConfiguracoes,
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(
+                                Icons.settings_rounded,
+                                color: Colors.white70,
+                                size: 22,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          GestureDetector(
+                            onTap: _mostrarAvisos,
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(
+                                Icons.info_outline_rounded,
+                                color: Colors.white70,
+                                size: 22,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      // Subtítulo
+                      const Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          "Selecione sua turma",
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.white60,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      // Grid de turmas
+                      _buildTurmaGrid(),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          // --- CONTEÚDO ---
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+              child: Column(
+                children: [
+                  // Card de Status
+                  _buildStatusCard(isEmbarcada),
+
+                  const SizedBox(height: 14),
+
+                  // Botão atualizar (compacto)
+                  _buildActionButton(
+                    icon: Icons.refresh_rounded,
+                    label: "Atualizar Status",
+                    onPressed: _atualizarStatusManual,
+                    outlined: true,
+                  ),
+
+                  const SizedBox(height: 28),
+
+                  // Seção calendário
+                  _buildSectionTitle("Calendário"),
+
+                  const SizedBox(height: 14),
+
+                  // Seletores mês/ano
+                  _buildMonthYearSelector(),
+
+                  const SizedBox(height: 16),
+
+                  // Botão ver escala
+                  _buildActionButton(
+                    icon: Icons.calendar_month_rounded,
+                    label: "Ver escala do mês",
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ProximoMesPage(
+                            escala: turmaSelecionada,
+                            mes: mesSelecionado,
+                            ano: anoSelecionado,
+                            isLider: perfil == 'lider',
+                          ),
+                        ),
+                      );
+                    },
+                    outlined: false,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // WIDGETS CUSTOMIZADOS
+  // ============================================================
+
+  /// Grid de turmas — 4 colunas, chips compactos
+  Widget _buildTurmaGrid() {
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: turmas.map((t) {
+        final selecionada = (turmaSelecionada == t);
+        return GestureDetector(
+          onTap: () => _onTurmaChanged(t),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOut,
+            width: 68,
+            height: 40,
+            decoration: BoxDecoration(
+              color: selecionada ? Colors.white : Colors.white.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: selecionada
+                    ? Colors.white
+                    : Colors.white.withValues(alpha: 0.25),
+                width: selecionada ? 2 : 1,
+              ),
+              boxShadow: selecionada
+                  ? [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.15),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      ),
+                    ]
+                  : [],
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              t,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: selecionada
+                    ? AppColors.primary
+                    : Colors.white.withValues(alpha: 0.8),
+                letterSpacing: 0.5,
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  /// Card de status principal
   Widget _buildStatusCard(bool isEmbarcada) {
-    // --- CORES CERTAS PARA CADA ESTADO ---
     final Color statusColor = isEmbarcada
-        ? Colors
-              .red
-              .shade700 // Embarcada = vermelho
-        : Colors.green.shade700; // Folga = verde
-
-    final Color backgroundColor = isEmbarcada
-        ? Colors
-              .red
-              .shade50 // Fundo vermelho claro
-        : Colors.green.shade50; // Fundo verde claro
-
+        ? AppColors.embarked
+        : AppColors.offDuty;
+    final Color bgColor = isEmbarcada
+        ? AppColors.embarkedBg
+        : AppColors.offDutyBg;
     final IconData statusIcon = isEmbarcada
-        ? Icons
-              .directions_bus_filled_rounded // Ônibus animado
-        : Icons.airline_seat_individual_suite; // Rede (descanso)
+        ? Icons.directions_bus_filled_rounded
+        : Icons.airline_seat_individual_suite_rounded;
+
+    // Dia de viagem?
+    final bool isDiaViagem =
+        diaEspecial == "embarque" || diaEspecial == "desembarque";
+    final Color viagemBannerColor = diaEspecial == "embarque"
+        ? const Color(0xFFFF6F00) // Laranja forte
+        : const Color(0xFF1565C0); // Azul
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 500),
       curve: Curves.easeInOut,
       width: double.infinity,
       decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(18),
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 10,
-            offset: const Offset(0, 6),
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      padding: const EdgeInsets.all(24),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // --- LINHA COM ÍCONE E STATUS ---
-          Row(
-            children: [
-              AnimatedSlide(
-                duration: const Duration(milliseconds: 600),
-                offset: isEmbarcada ? const Offset(0.15, 0) : Offset.zero,
-                curve: Curves.easeInOut,
-                child: AnimatedRotation(
-                  turns: isEmbarcada ? 0.02 : 0.0,
-                  duration: const Duration(milliseconds: 600),
-                  curve: Curves.easeInOut,
-                  child: Icon(statusIcon, color: statusColor, size: 40),
-                ),
+          // Barra colorida no topo do card
+          Container(
+            height: 4,
+            decoration: BoxDecoration(
+              color: statusColor,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(20),
+                topRight: Radius.circular(20),
               ),
-              const SizedBox(width: 16),
+            ),
+          ),
 
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          // ---- BANNER DIA DE VIAGEM ----
+          if (isDiaViagem)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+              decoration: BoxDecoration(color: viagemBannerColor),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text(
-                    "Status atual:",
-                    style: TextStyle(fontSize: 16, color: Colors.black54),
+                  Icon(
+                    diaEspecial == "embarque"
+                        ? Icons.flight_takeoff_rounded
+                        : Icons.flight_land_rounded,
+                    color: Colors.white,
+                    size: 18,
                   ),
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 300),
-                    transitionBuilder: (child, animation) =>
-                        FadeTransition(opacity: animation, child: child),
-                    child: Text(
-                      status,
-                      key: ValueKey(status),
-                      style: TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.bold,
-                        color: statusColor,
-                      ),
+                  const SizedBox(width: 8),
+                  Text(
+                    diaEspecial == "embarque"
+                        ? "VOCÊ EMBARCA HOJE!"
+                        : "VOCÊ DESEMBARCA HOJE!",
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                      letterSpacing: 0.5,
                     ),
                   ),
                 ],
               ),
-            ],
-          ),
-
-          const SizedBox(height: 16),
-
-          Text(
-            "Dias até próxima mudança: $diasRestantes",
-            style: const TextStyle(
-              fontSize: 18,
-              color: Colors.black87,
-              fontWeight: FontWeight.w500,
             ),
-          ),
-          const SizedBox(height: 8),
 
-          Text(
-            proximaMudancaTexto,
-            style: const TextStyle(fontSize: 16, color: Colors.black54),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMenuDrawer(BuildContext context) {
-    return Drawer(
-      child: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          const DrawerHeader(
-            decoration: BoxDecoration(color: Color(0xFF483D8B)),
-            child: Text(
-              "Menu",
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.calendar_today),
-            title: const Text("Próximo mês"),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => ProximoMesPage(
-                    escala: turmaSelecionada,
-                    mes: mesSelecionado,
-                    ano: anoSelecionado,
-                  ),
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    // Ícone com fundo colorido
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 400),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: bgColor,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Icon(statusIcon, color: statusColor, size: 28),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "Status atual",
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textSecondary,
+                              fontWeight: FontWeight.w500,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 300),
+                            child: Text(
+                              status,
+                              key: ValueKey(status),
+                              style: TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.w800,
+                                color: statusColor,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Badge com dias restantes
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: bgColor,
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      child: Column(
+                        children: [
+                          Text(
+                            "$diasRestantes",
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
+                              color: statusColor,
+                            ),
+                          ),
+                          Text(
+                            "dias",
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                              color: statusColor.withValues(alpha: 0.7),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-              );
-            },
+                const SizedBox(height: 16),
+                // Divider sutil
+                Container(height: 1, color: Colors.grey.withValues(alpha: 0.1)),
+                const SizedBox(height: 14),
+                // Data próxima mudança ou mensagem de viagem
+                Row(
+                  children: [
+                    Icon(
+                      isDiaViagem ? Icons.luggage_rounded : Icons.event_rounded,
+                      size: 16,
+                      color: isDiaViagem
+                          ? viagemBannerColor
+                          : AppColors.textSecondary,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        isDiaViagem
+                            ? (diaEspecial == "embarque"
+                                  ? "Hoje é dia de viagem! Boa jornada."
+                                  : "Hoje é dia de voltar pra casa! Bom descanso.")
+                            : proximaMudancaTexto,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: isDiaViagem
+                              ? viagemBannerColor
+                              : AppColors.textSecondary,
+                          fontWeight: isDiaViagem
+                              ? FontWeight.w600
+                              : FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
+
+  /// Título de seção
+  Widget _buildSectionTitle(String title) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+          color: AppColors.textPrimary,
+          letterSpacing: -0.3,
+        ),
+      ),
+    );
+  }
+
+  /// Seletor de mês e ano com visual limpo
+  Widget _buildMonthYearSelector() {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 2,
+            child: _buildDropdown<int>(
+              value: mesSelecionado,
+              label: "Mês",
+              items: List.generate(12, (index) {
+                final mes = index + 1;
+                return DropdownMenuItem(
+                  value: mes,
+                  child: Text(
+                    toBeginningOfSentenceCase(
+                      DateFormat.MMMM("pt_BR").format(DateTime(2026, mes)),
+                    )!,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                );
+              }),
+              onChanged: (value) {
+                if (value != null) setState(() => mesSelecionado = value);
+              },
+            ),
+          ),
+          Container(width: 1, height: 36, color: Colors.grey.withValues(alpha: 0.15)),
+          Expanded(
+            flex: 1,
+            child: _buildDropdown<int>(
+              value: anoSelecionado,
+              label: "Ano",
+              items: List.generate(15, (index) {
+                final ano = DateTime.now().year - 5 + index;
+                return DropdownMenuItem(
+                  value: ano,
+                  child: Text(
+                    ano.toString(),
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                );
+              }),
+              onChanged: (value) {
+                if (value != null) setState(() => anoSelecionado = value);
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDropdown<T>({
+    required T value,
+    required String label,
+    required List<DropdownMenuItem<T>> items,
+    required ValueChanged<T?> onChanged,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<T>(
+          value: value,
+          items: items,
+          onChanged: onChanged,
+          isDense: true,
+          isExpanded: true,
+          icon: Icon(
+            Icons.keyboard_arrow_down_rounded,
+            color: AppColors.textSecondary,
+            size: 20,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Botão de ação — pode ser preenchido (filled) ou outline
+  Widget _buildActionButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onPressed,
+    required bool outlined,
+  }) {
+    if (outlined) {
+      return SizedBox(
+        width: double.infinity,
+        child: OutlinedButton.icon(
+          onPressed: onPressed,
+          icon: Icon(icon, size: 16),
+          label: Text(label),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.primaryLight,
+            side: BorderSide(
+              color: AppColors.primaryLight.withValues(alpha: 0.3),
+              width: 1.2,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+            padding: const EdgeInsets.symmetric(vertical: 13),
+            textStyle: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              fontFamily: 'Poppins',
+            ),
+          ),
+        ),
+      );
+    }
+
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: onPressed,
+        icon: Icon(icon, size: 18),
+        label: Text(label),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 15),
+          textStyle: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            fontFamily: 'Poppins',
+          ),
+        ),
+      ),
+    );
+  }
+
 }
 
 // ---------- NOTIFICAÇÕES EXTERNAS ----------
 Future<void> scheduleNextTravelNotification(DateTime dataBase) async {
   final now = DateTime.now();
-
   for (int i = 0; i < 30; i++) {
     final candidate = DateTime(now.year, now.month, now.day + i);
-
     final diasDesde = candidate
         .difference(DateTime(dataBase.year, dataBase.month, dataBase.day))
         .inDays;
-
     final ciclo = ((diasDesde) % 20 + 20) % 20;
 
     if (ciclo == 0 || ciclo == 11) {
       final notificationDay = candidate.subtract(const Duration(days: 1));
-
       final scheduled = DateTime(
         notificationDay.year,
         notificationDay.month,
@@ -604,7 +1096,6 @@ Future<void> scheduleNextTravelNotification(DateTime dataBase) async {
         8,
         0,
       );
-
       await flutterLocalNotificationsPlugin.zonedSchedule(
         0,
         'Viagem amanhã',
@@ -624,7 +1115,6 @@ Future<void> scheduleNextTravelNotification(DateTime dataBase) async {
             UILocalNotificationDateInterpretation.absoluteTime,
         matchDateTimeComponents: DateTimeComponents.dateAndTime,
       );
-
       break;
     }
   }
