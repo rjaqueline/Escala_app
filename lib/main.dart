@@ -1,5 +1,5 @@
 // ============================================================
-// ESCALA+ — Redesign UI 
+// ESCALA+ — Redesign UI
 // ============================================================
 // Imports organizados
 import 'package:flutter/material.dart';
@@ -109,7 +109,7 @@ class EscalaHome extends StatefulWidget {
   State<EscalaHome> createState() => _EscalaHomeState();
 }
 
-class _EscalaHomeState extends State<EscalaHome> {
+class _EscalaHomeState extends State<EscalaHome> with WidgetsBindingObserver {
   // ---------- ESTADO ----------
   DateTime? dataBase;
   String status = "";
@@ -135,8 +135,24 @@ class _EscalaHomeState extends State<EscalaHome> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadPrefs();
     _loadAppVersion();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      setState(() {
+        _calcularStatus();
+      });
+    }
   }
 
   Future<void> _loadAppVersion() async {
@@ -172,12 +188,6 @@ class _EscalaHomeState extends State<EscalaHome> {
     }
   }
 
-  void _atualizarStatusManual() {
-    setState(() {
-      _calcularStatus();
-    });
-  }
-
   // Tipo de dia especial: embarque, desembarque, ou normal
   String diaEspecial = ""; // "", "embarque", "desembarque"
 
@@ -198,7 +208,7 @@ class _EscalaHomeState extends State<EscalaHome> {
 
     late DateTime proximaMudanca;
     if (ciclo < 12) {
-      status = "Embarcada";
+      status = "Embarcado(a)";
       diasRestantes = 12 - ciclo;
       proximaMudanca = hojeLimpo.add(Duration(days: diasRestantes - 1));
     } else {
@@ -207,7 +217,7 @@ class _EscalaHomeState extends State<EscalaHome> {
       proximaMudanca = hojeLimpo.add(Duration(days: diasRestantes));
     }
     final df = DateFormat('dd/MM/yyyy');
-    proximaMudancaTexto = (status == "Embarcada")
+    proximaMudancaTexto = (status == "Embarcado(a)")
         ? "Próximo desembarque: ${df.format(proximaMudanca)}"
         : "Próximo embarque: ${df.format(proximaMudanca)}";
   }
@@ -278,6 +288,7 @@ class _EscalaHomeState extends State<EscalaHome> {
                 onTap: () async {
                   final prefs = await SharedPreferences.getInstance();
                   await prefs.setString('perfil', 'colaborador');
+                  if (!context.mounted) return;
                   setState(() => perfil = 'colaborador');
                   Navigator.pop(context);
                 },
@@ -293,6 +304,7 @@ class _EscalaHomeState extends State<EscalaHome> {
                 onTap: () async {
                   final prefs = await SharedPreferences.getInstance();
                   await prefs.setString('perfil', 'lider');
+                  if (!context.mounted) return;
                   setState(() => perfil = 'lider');
                   Navigator.pop(context);
                 },
@@ -497,7 +509,7 @@ class _EscalaHomeState extends State<EscalaHome> {
   // ============================================================
   @override
   Widget build(BuildContext context) {
-    final bool isEmbarcada = status == "Embarcada";
+    final bool isEmbarcada = status == "Embarcado(a)";
 
     return Scaffold(
       body: CustomScrollView(
@@ -602,16 +614,6 @@ class _EscalaHomeState extends State<EscalaHome> {
                   // Card de Status
                   _buildStatusCard(isEmbarcada),
 
-                  const SizedBox(height: 14),
-
-                  // Botão atualizar (compacto)
-                  _buildActionButton(
-                    icon: Icons.refresh_rounded,
-                    label: "Atualizar Status",
-                    onPressed: _atualizarStatusManual,
-                    outlined: true,
-                  ),
-
                   const SizedBox(height: 28),
 
                   // Seção calendário
@@ -671,7 +673,9 @@ class _EscalaHomeState extends State<EscalaHome> {
             width: 68,
             height: 40,
             decoration: BoxDecoration(
-              color: selecionada ? Colors.white : Colors.white.withValues(alpha: 0.1),
+              color: selecionada
+                  ? Colors.white
+                  : Colors.white.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: selecionada
@@ -766,8 +770,8 @@ class _EscalaHomeState extends State<EscalaHome> {
                 children: [
                   Icon(
                     diaEspecial == "embarque"
-                        ? Icons.flight_takeoff_rounded
-                        : Icons.flight_land_rounded,
+                        ? Icons.directions_bus_filled_rounded
+                        : Icons.directions_bus_rounded,
                     color: Colors.white,
                     size: 18,
                   ),
@@ -821,13 +825,17 @@ class _EscalaHomeState extends State<EscalaHome> {
                           const SizedBox(height: 2),
                           AnimatedSwitcher(
                             duration: const Duration(milliseconds: 300),
-                            child: Text(
-                              status,
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
                               key: ValueKey(status),
-                              style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.w800,
-                                color: statusColor,
+                              child: Text(
+                                status,
+                                style: TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w800,
+                                  color: statusColor,
+                                ),
                               ),
                             ),
                           ),
@@ -966,7 +974,11 @@ class _EscalaHomeState extends State<EscalaHome> {
               },
             ),
           ),
-          Container(width: 1, height: 36, color: Colors.grey.withValues(alpha: 0.15)),
+          Container(
+            width: 1,
+            height: 36,
+            color: Colors.grey.withValues(alpha: 0.15),
+          ),
           Expanded(
             flex: 1,
             child: _buildDropdown<int>(
@@ -1074,7 +1086,6 @@ class _EscalaHomeState extends State<EscalaHome> {
       ),
     );
   }
-
 }
 
 // ---------- NOTIFICAÇÕES EXTERNAS ----------

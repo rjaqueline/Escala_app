@@ -167,7 +167,7 @@ class _ProximoMesPageState extends State<ProximoMesPage> {
                 final turno = item['turno'] as Turno;
 
                 final embarcada = turno == Turno.embarque;
-                final status = embarcada ? "Embarcada" : "Folga";
+                final status = embarcada ? "Embarcado(a)" : "Folga";
                 final diaSemana = _diaSemana(data);
 
                 final isHoje = data == hojeLimpo;
