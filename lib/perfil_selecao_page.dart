@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'app_theme.dart';
 
 class PerfilSelecaoPage extends StatefulWidget {
   final VoidCallback onPerfilSelecionado;
@@ -45,96 +48,104 @@ class _PerfilSelecaoPageState extends State<PerfilSelecaoPage>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF3A2D6B), Color(0xFF5B4FA0), Color(0xFF7B6FC0)],
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
+      child: Scaffold(
+        body: Container(
+          width: double.infinity,
+          height: double.infinity,
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                AppTheme.brandPurple,
+                AppTheme.brandPurpleLight,
+                Color(0xFF7B6FC0),
+              ],
+            ),
           ),
-        ),
-        child: SafeArea(
-          child: FadeTransition(
-            opacity: _fadeIn,
-            child: SlideTransition(
-              position: _slideUp,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 32),
-                child: Column(
-                  children: [
-                    const Spacer(flex: 2),
+          child: SafeArea(
+            child: FadeTransition(
+              opacity: _fadeIn,
+              child: SlideTransition(
+                position: _slideUp,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: Column(
+                    children: [
+                      const Spacer(flex: 2),
 
-                    // Logo / Título
-                    Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(24),
+                      // Logo / Título
+                      Container(
+                        width: 80,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                        child: const Icon(
+                          Icons.calendar_month_rounded,
+                          size: 40,
+                          color: Colors.white,
+                        ),
                       ),
-                      child: const Icon(
-                        Icons.calendar_month_rounded,
-                        size: 40,
-                        color: Colors.white,
+                      const SizedBox(height: 24),
+
+                      const Text(
+                        "Escala+",
+                        style: TextStyle(
+                          fontSize: 34,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                          letterSpacing: -0.5,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 24),
-
-                    const Text(
-                      "Escala+",
-                      style: TextStyle(
-                        fontSize: 34,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                        letterSpacing: -0.5,
+                      const SizedBox(height: 8),
+                      Text(
+                        "Como você vai usar o app?",
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.white.withValues(alpha: 0.7),
+                          fontWeight: FontWeight.w400,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      "Como você vai usar o app?",
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.white.withValues(alpha: 0.7),
-                        fontWeight: FontWeight.w400,
+
+                      const Spacer(flex: 2),
+
+                      // Card Colaborador
+                      _buildPerfilCard(
+                        icon: Icons.person_rounded,
+                        titulo: "Colaborador",
+                        descricao: "Veja sua escala de forma simples e rápida",
+                        onTap: () => _selecionarPerfil('colaborador'),
                       ),
-                    ),
 
-                    const Spacer(flex: 2),
+                      const SizedBox(height: 16),
 
-                    // Card Colaborador
-                    _buildPerfilCard(
-                      icon: Icons.person_rounded,
-                      titulo: "Colaborador",
-                      descricao: "Veja sua escala de forma simples e rápida",
-                      onTap: () => _selecionarPerfil('colaborador'),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Card Líder
-                    _buildPerfilCard(
-                      icon: Icons.groups_rounded,
-                      titulo: "Líder",
-                      descricao: "Acompanhe a movimentação de todas as turmas",
-                      onTap: () => _selecionarPerfil('lider'),
-                      destaque: true,
-                    ),
-
-                    const Spacer(flex: 3),
-
-                    // Nota de rodapé
-                    Text(
-                      "Você pode alterar isso depois nas configurações",
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.white.withValues(alpha: 0.4),
+                      // Card Líder
+                      _buildPerfilCard(
+                        icon: Icons.groups_rounded,
+                        titulo: "Líder",
+                        descricao:
+                            "Acompanhe a movimentação de todas as turmas",
+                        onTap: () => _selecionarPerfil('lider'),
+                        destaque: true,
                       ),
-                    ),
-                    const SizedBox(height: 24),
-                  ],
+
+                      const Spacer(flex: 3),
+
+                      // Nota de rodapé
+                      Text(
+                        "Você pode alterar isso depois nas configurações",
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.white.withValues(alpha: 0.4),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -161,7 +172,9 @@ class _PerfilSelecaoPageState extends State<PerfilSelecaoPage>
           color: destaque ? Colors.white : Colors.white.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: destaque ? Colors.white : Colors.white.withValues(alpha: 0.2),
+            color: destaque
+                ? Colors.white
+                : Colors.white.withValues(alpha: 0.2),
             width: destaque ? 2 : 1,
           ),
           boxShadow: destaque
@@ -182,14 +195,14 @@ class _PerfilSelecaoPageState extends State<PerfilSelecaoPage>
               height: 52,
               decoration: BoxDecoration(
                 color: destaque
-                    ? const Color(0xFF3A2D6B).withValues(alpha: 0.1)
+                    ? AppTheme.brandPurple.withValues(alpha: 0.1)
                     : Colors.white.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Icon(
                 icon,
                 size: 26,
-                color: destaque ? const Color(0xFF3A2D6B) : Colors.white,
+                color: destaque ? AppTheme.brandPurple : Colors.white,
               ),
             ),
             const SizedBox(width: 16),
@@ -227,7 +240,7 @@ class _PerfilSelecaoPageState extends State<PerfilSelecaoPage>
               Icons.arrow_forward_ios_rounded,
               size: 16,
               color: destaque
-                  ? const Color(0xFF3A2D6B)
+                  ? AppTheme.brandPurple
                   : Colors.white.withValues(alpha: 0.5),
             ),
           ],

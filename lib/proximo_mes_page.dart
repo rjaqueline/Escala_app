@@ -1,5 +1,7 @@
+import 'package:escala_app/app_theme.dart';
 import 'package:escala_app/escala_12x8.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 class ProximoMesPage extends StatefulWidget {
@@ -69,6 +71,8 @@ class _ProximoMesPageState extends State<ProximoMesPage> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final statusColors = context.statusColors;
     final df = DateFormat('dd/MM');
     final dias = gerarEscalaDoMes();
 
@@ -76,7 +80,6 @@ class _ProximoMesPageState extends State<ProximoMesPage> {
     final hojeLimpo = DateTime(hoje.year, hoje.month, hoje.day);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F7FC),
       appBar: AppBar(
         title: Text(
           'Escala ${widget.escala} – ${toBeginningOfSentenceCase(DateFormat.MMMM("pt_BR").format(DateTime(widget.ano, widget.mes)))} ${widget.ano}',
@@ -88,9 +91,10 @@ class _ProximoMesPageState extends State<ProximoMesPage> {
           ),
         ),
         centerTitle: true,
-        backgroundColor: const Color(0xFF3A2D6B),
+        backgroundColor: AppTheme.brandPurple,
         foregroundColor: Colors.white,
         elevation: 0,
+        systemOverlayStyle: SystemUiOverlayStyle.light,
         actions: [
           if (widget.isLider)
             Padding(
@@ -127,7 +131,7 @@ class _ProximoMesPageState extends State<ProximoMesPage> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               color: _mostrarMovimentacao
-                  ? const Color(0xFF3A2D6B).withValues(alpha: 0.08)
+                  ? cs.primary.withValues(alpha: 0.12)
                   : Colors.transparent,
               child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 250),
@@ -139,7 +143,7 @@ class _ProximoMesPageState extends State<ProximoMesPage> {
                           Icon(
                             Icons.visibility_rounded,
                             size: 14,
-                            color: const Color(0xFF3A2D6B).withValues(alpha: 0.6),
+                            color: cs.primary,
                           ),
                           const SizedBox(width: 6),
                           Text(
@@ -147,7 +151,7 @@ class _ProximoMesPageState extends State<ProximoMesPage> {
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
-                              color: const Color(0xFF3A2D6B).withValues(alpha: 0.6),
+                              color: cs.primary,
                             ),
                           ),
                         ],
@@ -193,17 +197,17 @@ class _ProximoMesPageState extends State<ProximoMesPage> {
                   ),
                   decoration: BoxDecoration(
                     color: embarcada
-                        ? Colors.red.shade50
-                        : Colors.green.shade50,
+                        ? statusColors.embarkedBg
+                        : statusColors.offDutyBg,
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
                       color: isHoje
                           ? (embarcada
-                                ? Colors.red.shade400
-                                : Colors.green.shade400)
+                                ? statusColors.embarked
+                                : statusColors.offDuty)
                           : (embarcada
-                                ? Colors.red.shade200
-                                : Colors.green.shade200),
+                                ? statusColors.embarkedBorder
+                                : statusColors.offDutyBorder),
                       width: isHoje ? 2 : 1,
                     ),
                   ),
@@ -218,8 +222,8 @@ class _ProximoMesPageState extends State<ProximoMesPage> {
                                 ? Icons.directions_bus_filled_rounded
                                 : Icons.airline_seat_individual_suite,
                             color: embarcada
-                                ? Colors.red.shade600
-                                : Colors.green.shade600,
+                                ? statusColors.embarked
+                                : statusColors.offDuty,
                             size: 20,
                           ),
                           const SizedBox(width: 10),
@@ -229,8 +233,8 @@ class _ProximoMesPageState extends State<ProximoMesPage> {
                               fontSize: 16,
                               fontWeight: FontWeight.w700,
                               color: embarcada
-                                  ? Colors.red.shade700
-                                  : Colors.green.shade700,
+                                  ? statusColors.embarked
+                                  : statusColors.offDuty,
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -242,8 +246,8 @@ class _ProximoMesPageState extends State<ProximoMesPage> {
                             decoration: BoxDecoration(
                               color: isFimDeSemana
                                   ? (embarcada
-                                        ? Colors.red.shade100
-                                        : Colors.green.shade100)
+                                        ? statusColors.embarkedBorder
+                                        : statusColors.offDutyBorder)
                                   : Colors.transparent,
                               borderRadius: BorderRadius.circular(6),
                             ),
@@ -255,8 +259,8 @@ class _ProximoMesPageState extends State<ProximoMesPage> {
                                     ? FontWeight.w700
                                     : FontWeight.w500,
                                 color: embarcada
-                                    ? Colors.red.shade400
-                                    : Colors.green.shade400,
+                                    ? statusColors.embarked
+                                    : statusColors.offDuty,
                               ),
                             ),
                           ),
@@ -269,8 +273,8 @@ class _ProximoMesPageState extends State<ProximoMesPage> {
                               ),
                               decoration: BoxDecoration(
                                 color: embarcada
-                                    ? Colors.red.shade600
-                                    : Colors.green.shade600,
+                                    ? statusColors.embarked
+                                    : statusColors.offDuty,
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: const Text(
@@ -291,8 +295,8 @@ class _ProximoMesPageState extends State<ProximoMesPage> {
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
                               color: embarcada
-                                  ? Colors.red.shade700
-                                  : Colors.green.shade700,
+                                  ? statusColors.embarked
+                                  : statusColors.offDuty,
                             ),
                           ),
                         ],
@@ -320,7 +324,7 @@ class _ProximoMesPageState extends State<ProximoMesPage> {
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w400,
-                            color: Colors.grey.shade400,
+                            color: cs.onSurfaceVariant,
                           ),
                         ),
                       ],
@@ -337,13 +341,14 @@ class _ProximoMesPageState extends State<ProximoMesPage> {
 
   /// Tag compacta de movimentação
   Widget _buildMovTag({required String turma, required String tipo}) {
+    final statusColors = context.statusColors;
     final bool isEmbarque = tipo == "embarca";
     final Color bgColor = isEmbarque
-        ? const Color(0xFFE3F2FD)
-        : const Color(0xFFFFF3E0);
+        ? statusColors.tagInBg
+        : statusColors.tagOutBg;
     final Color textColor = isEmbarque
-        ? const Color(0xFF1565C0)
-        : const Color(0xFFE65100);
+        ? statusColors.tagInFg
+        : statusColors.tagOutFg;
     final IconData icon = isEmbarque
         ? Icons.login_rounded
         : Icons.logout_rounded;

@@ -3,6 +3,7 @@
 // ============================================================
 // Imports organizados
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
@@ -12,7 +13,9 @@ import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import 'app_theme.dart';
 import 'escala_12x8.dart';
 import 'proximo_mes_page.dart';
 import 'perfil_selecao_page.dart';
@@ -35,24 +38,6 @@ void main() async {
   runApp(const EscalaApp());
 }
 
-// ============================================================
-// CORES E CONSTANTES DO TEMA
-// ============================================================
-class AppColors {
-  static const Color primary = Color(0xFF3A2D6B); // Roxo profundo
-  static const Color primaryLight = Color(0xFF5B4FA0); // Roxo médio
-  static const Color primarySoft = Color(0xFFEDE9F6); // Roxo bem clarinho
-  static const Color surface = Color(0xFFF8F7FC); // Fundo geral
-  static const Color card = Colors.white;
-  static const Color textPrimary = Color(0xFF1A1A2E);
-  static const Color textSecondary = Color(0xFF6B6B80);
-  static const Color embarked = Color(0xFFD32F2F);
-  static const Color embarkedBg = Color(0xFFFFF0F0);
-  static const Color offDuty = Color(0xFF2E7D32);
-  static const Color offDutyBg = Color(0xFFF0F8F0);
-  static const Color accent = Color(0xFFFF9800);
-}
-
 class EscalaApp extends StatefulWidget {
   const EscalaApp({super.key});
 
@@ -63,11 +48,13 @@ class EscalaApp extends StatefulWidget {
 class _EscalaAppState extends State<EscalaApp> {
   bool _carregando = true;
   String? _perfil;
+  ThemeMode _temaModo = ThemeMode.system;
 
   @override
   void initState() {
     super.initState();
     _verificarPerfil();
+    _carregarTema();
   }
 
   Future<void> _verificarPerfil() async {
@@ -78,32 +65,70 @@ class _EscalaAppState extends State<EscalaApp> {
     });
   }
 
+  Future<void> _carregarTema() async {
+    final prefs = await SharedPreferences.getInstance();
+    final salvo = prefs.getString('temaModo') ?? 'system';
+    setState(() {
+      _temaModo = _temaModoFromString(salvo);
+    });
+  }
+
+  Future<void> _onTemaChanged(ThemeMode modo) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('temaModo', _temaModoToString(modo));
+    setState(() {
+      _temaModo = modo;
+    });
+  }
+
+  static ThemeMode _temaModoFromString(String valor) {
+    switch (valor) {
+      case 'light':
+        return ThemeMode.light;
+      case 'dark':
+        return ThemeMode.dark;
+      default:
+        return ThemeMode.system;
+    }
+  }
+
+  static String _temaModoToString(ThemeMode modo) {
+    switch (modo) {
+      case ThemeMode.light:
+        return 'light';
+      case ThemeMode.dark:
+        return 'dark';
+      case ThemeMode.system:
+        return 'system';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Escala+',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        fontFamily: 'Poppins',
-        scaffoldBackgroundColor: AppColors.surface,
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          scrolledUnderElevation: 0,
-        ),
-      ),
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: _temaModo,
       home: _carregando
           ? const Scaffold(body: Center(child: CircularProgressIndicator()))
           : _perfil == null
           ? PerfilSelecaoPage(onPerfilSelecionado: () => _verificarPerfil())
-          : const EscalaHome(),
+          : EscalaHome(temaAtual: _temaModo, onTemaChanged: _onTemaChanged),
     );
   }
 }
 
 class EscalaHome extends StatefulWidget {
-  const EscalaHome({super.key});
+  final ThemeMode temaAtual;
+  final ValueChanged<ThemeMode> onTemaChanged;
+
+  const EscalaHome({
+    super.key,
+    required this.temaAtual,
+    required this.onTemaChanged,
+  });
 
   @override
   State<EscalaHome> createState() => _EscalaHomeState();
@@ -229,10 +254,11 @@ class _EscalaHomeState extends State<EscalaHome> with WidgetsBindingObserver {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
+        final cs = Theme.of(context).colorScheme;
         return Container(
           margin: const EdgeInsets.fromLTRB(16, 16, 16, 40),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(24),
           ),
           padding: const EdgeInsets.all(24),
@@ -245,22 +271,22 @@ class _EscalaHomeState extends State<EscalaHome> with WidgetsBindingObserver {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.1),
+                      color: cs.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.settings_rounded,
-                      color: AppColors.primary,
+                      color: cs.primary,
                       size: 24,
                     ),
                   ),
                   const SizedBox(width: 12),
-                  const Text(
+                  Text(
                     "Configurações",
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
+                      color: cs.onSurface,
                     ),
                   ),
                 ],
@@ -268,12 +294,12 @@ class _EscalaHomeState extends State<EscalaHome> with WidgetsBindingObserver {
               const SizedBox(height: 24),
 
               // Perfil atual
-              const Text(
+              Text(
                 "Seu perfil",
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.textSecondary,
+                  color: cs.onSurfaceVariant,
                   letterSpacing: 0.5,
                 ),
               ),
@@ -312,8 +338,57 @@ class _EscalaHomeState extends State<EscalaHome> with WidgetsBindingObserver {
 
               const SizedBox(height: 24),
 
+              // Tema
+              Text(
+                "Tema",
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: cs.onSurfaceVariant,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 10),
+
+              _buildPerfilOption(
+                icon: Icons.brightness_auto_rounded,
+                titulo: "Sistema",
+                descricao: "Segue o tema do aparelho",
+                selecionado: widget.temaAtual == ThemeMode.system,
+                onTap: () {
+                  widget.onTemaChanged(ThemeMode.system);
+                  Navigator.pop(context);
+                },
+              ),
+              const SizedBox(height: 10),
+
+              _buildPerfilOption(
+                icon: Icons.light_mode_rounded,
+                titulo: "Claro",
+                descricao: "Sempre usar o tema claro",
+                selecionado: widget.temaAtual == ThemeMode.light,
+                onTap: () {
+                  widget.onTemaChanged(ThemeMode.light);
+                  Navigator.pop(context);
+                },
+              ),
+              const SizedBox(height: 10),
+
+              _buildPerfilOption(
+                icon: Icons.dark_mode_rounded,
+                titulo: "Escuro",
+                descricao: "Sempre usar o tema escuro",
+                selecionado: widget.temaAtual == ThemeMode.dark,
+                onTap: () {
+                  widget.onTemaChanged(ThemeMode.dark);
+                  Navigator.pop(context);
+                },
+              ),
+
+              const SizedBox(height: 24),
+
               // Divider
-              Container(height: 1, color: Colors.grey.withValues(alpha: 0.1)),
+              Container(height: 1, color: Theme.of(context).dividerColor),
               const SizedBox(height: 16),
 
               // Sobre o app
@@ -325,7 +400,7 @@ class _EscalaHomeState extends State<EscalaHome> with WidgetsBindingObserver {
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.textSecondary.withValues(alpha: 0.6),
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.6),
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -334,7 +409,32 @@ class _EscalaHomeState extends State<EscalaHome> with WidgetsBindingObserver {
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w500,
-                        color: AppColors.textSecondary.withValues(alpha: 0.5),
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextButton.icon(
+                      onPressed: () => _contatarDesenvolvedora(),
+                      icon: Icon(
+                        Icons.email_outlined,
+                        size: 15,
+                        color: cs.primary.withValues(alpha: 0.8),
+                      ),
+                      label: Text(
+                        "Fale com a desenvolvedora",
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: cs.primary.withValues(alpha: 0.8),
+                        ),
+                      ),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
                     ),
                   ],
@@ -347,6 +447,16 @@ class _EscalaHomeState extends State<EscalaHome> with WidgetsBindingObserver {
     );
   }
 
+  Future<void> _contatarDesenvolvedora() async {
+    final versaoTexto = appVersion.isEmpty ? "Escala+" : "Escala+ v$appVersion";
+    final uri = Uri(
+      scheme: 'mailto',
+      path: 'jaquebatista.dev@gmail.com',
+      queryParameters: {'subject': '$versaoTexto - Contato'},
+    );
+    await launchUrl(uri);
+  }
+
   Widget _buildPerfilOption({
     required IconData icon,
     required String titulo,
@@ -354,6 +464,7 @@ class _EscalaHomeState extends State<EscalaHome> with WidgetsBindingObserver {
     required bool selecionado,
     required VoidCallback onTap,
   }) {
+    final cs = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -361,12 +472,12 @@ class _EscalaHomeState extends State<EscalaHome> with WidgetsBindingObserver {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: selecionado
-              ? AppColors.primary.withValues(alpha: 0.08)
+              ? cs.primary.withValues(alpha: 0.08)
               : Colors.grey.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: selecionado
-                ? AppColors.primary.withValues(alpha: 0.4)
+                ? cs.primary.withValues(alpha: 0.4)
                 : Colors.grey.withValues(alpha: 0.15),
             width: selecionado ? 1.5 : 1,
           ),
@@ -376,7 +487,7 @@ class _EscalaHomeState extends State<EscalaHome> with WidgetsBindingObserver {
             Icon(
               icon,
               size: 22,
-              color: selecionado ? AppColors.primary : AppColors.textSecondary,
+              color: selecionado ? cs.primary : cs.onSurfaceVariant,
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -388,27 +499,18 @@ class _EscalaHomeState extends State<EscalaHome> with WidgetsBindingObserver {
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
-                      color: selecionado
-                          ? AppColors.primary
-                          : AppColors.textPrimary,
+                      color: selecionado ? cs.primary : cs.onSurface,
                     ),
                   ),
                   Text(
                     descricao,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                    ),
+                    style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
                   ),
                 ],
               ),
             ),
             if (selecionado)
-              const Icon(
-                Icons.check_circle_rounded,
-                color: AppColors.primary,
-                size: 22,
-              ),
+              Icon(Icons.check_circle_rounded, color: cs.primary, size: 22),
           ],
         ),
       ),
@@ -422,10 +524,12 @@ class _EscalaHomeState extends State<EscalaHome> with WidgetsBindingObserver {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
+        final cs = Theme.of(context).colorScheme;
+        final statusColors = context.statusColors;
         return Container(
           margin: const EdgeInsets.fromLTRB(16, 16, 16, 40),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(24),
           ),
           padding: const EdgeInsets.all(24),
@@ -438,22 +542,22 @@ class _EscalaHomeState extends State<EscalaHome> with WidgetsBindingObserver {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: AppColors.accent.withValues(alpha: 0.12),
+                      color: statusColors.warning.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
                       Icons.campaign_rounded,
-                      color: AppColors.accent,
+                      color: statusColors.warning,
                       size: 24,
                     ),
                   ),
                   const SizedBox(width: 12),
-                  const Text(
+                  Text(
                     "Avisos Importantes",
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
+                      color: cs.onSurface,
                     ),
                   ),
                 ],
@@ -461,14 +565,14 @@ class _EscalaHomeState extends State<EscalaHome> with WidgetsBindingObserver {
               const SizedBox(height: 20),
               _buildAvisoItem(
                 icon: Icons.warning_amber_rounded,
-                color: AppColors.accent,
+                color: statusColors.warning,
                 text:
                     "Antes de realizar qualquer viagem, confirme sua escala no sistema oficial.",
               ),
               const SizedBox(height: 14),
               _buildAvisoItem(
                 icon: Icons.shield_rounded,
-                color: AppColors.embarked,
+                color: statusColors.embarked,
                 text:
                     "Não compartilhe sua escala com desconhecidos. Evite riscos de furtos durante sua viagem.",
               ),
@@ -485,6 +589,7 @@ class _EscalaHomeState extends State<EscalaHome> with WidgetsBindingObserver {
     required Color color,
     required String text,
   }) {
+    final cs = Theme.of(context).colorScheme;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -493,9 +598,9 @@ class _EscalaHomeState extends State<EscalaHome> with WidgetsBindingObserver {
         Expanded(
           child: Text(
             text,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
-              color: AppColors.textSecondary,
+              color: cs.onSurfaceVariant,
               height: 1.4,
             ),
           ),
@@ -511,145 +616,148 @@ class _EscalaHomeState extends State<EscalaHome> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final bool isEmbarcada = status == "Embarcado(a)";
 
-    return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          // --- HEADER ROXO COM GRADIENTE ---
-          SliverToBoxAdapter(
-            child: Container(
-              width: double.infinity,
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFF3A2D6B), Color(0xFF5B4FA0)],
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
+      child: Scaffold(
+        body: CustomScrollView(
+          slivers: [
+            // --- HEADER ROXO COM GRADIENTE ---
+            SliverToBoxAdapter(
+              child: Container(
+                width: double.infinity,
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: AppTheme.headerGradient,
+                  ),
+                  borderRadius: BorderRadius.only(
+                    bottomLeft: Radius.circular(28),
+                    bottomRight: Radius.circular(28),
+                  ),
                 ),
-                borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(28),
-                  bottomRight: Radius.circular(28),
-                ),
-              ),
-              child: SafeArea(
-                bottom: false,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 28),
-                  child: Column(
-                    children: [
-                      // Título + botões
-                      Row(
-                        children: [
-                          const Expanded(
-                            child: Text(
-                              "Escala+",
-                              style: TextStyle(
-                                fontSize: 26,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
-                                letterSpacing: -0.5,
+                child: SafeArea(
+                  bottom: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 16, 24, 28),
+                    child: Column(
+                      children: [
+                        // Título + botões
+                        Row(
+                          children: [
+                            const Expanded(
+                              child: Text(
+                                "Escala+",
+                                style: TextStyle(
+                                  fontSize: 26,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                  letterSpacing: -0.5,
+                                ),
                               ),
                             ),
-                          ),
-                          GestureDetector(
-                            onTap: _mostrarConfiguracoes,
-                            child: Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Icon(
-                                Icons.settings_rounded,
-                                color: Colors.white70,
-                                size: 22,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          GestureDetector(
-                            onTap: _mostrarAvisos,
-                            child: Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Icon(
-                                Icons.info_outline_rounded,
-                                color: Colors.white70,
-                                size: 22,
+                            GestureDetector(
+                              onTap: _mostrarConfiguracoes,
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Icon(
+                                  Icons.settings_rounded,
+                                  color: Colors.white70,
+                                  size: 22,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      // Subtítulo
-                      const Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          "Selecione sua turma",
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.white60,
-                            fontWeight: FontWeight.w400,
+                            const SizedBox(width: 8),
+                            GestureDetector(
+                              onTap: _mostrarAvisos,
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Icon(
+                                  Icons.info_outline_rounded,
+                                  color: Colors.white70,
+                                  size: 22,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        // Subtítulo
+                        const Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            "Selecione sua turma",
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.white60,
+                              fontWeight: FontWeight.w400,
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 18),
-                      // Grid de turmas
-                      _buildTurmaGrid(),
-                    ],
+                        const SizedBox(height: 18),
+                        // Grid de turmas
+                        _buildTurmaGrid(),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
 
-          // --- CONTEÚDO ---
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
-              child: Column(
-                children: [
-                  // Card de Status
-                  _buildStatusCard(isEmbarcada),
+            // --- CONTEÚDO ---
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+                child: Column(
+                  children: [
+                    // Card de Status
+                    _buildStatusCard(isEmbarcada),
 
-                  const SizedBox(height: 28),
+                    const SizedBox(height: 28),
 
-                  // Seção calendário
-                  _buildSectionTitle("Calendário"),
+                    // Seção calendário
+                    _buildSectionTitle("Calendário"),
 
-                  const SizedBox(height: 14),
+                    const SizedBox(height: 14),
 
-                  // Seletores mês/ano
-                  _buildMonthYearSelector(),
+                    // Seletores mês/ano
+                    _buildMonthYearSelector(),
 
-                  const SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
-                  // Botão ver escala
-                  _buildActionButton(
-                    icon: Icons.calendar_month_rounded,
-                    label: "Ver escala do mês",
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ProximoMesPage(
-                            escala: turmaSelecionada,
-                            mes: mesSelecionado,
-                            ano: anoSelecionado,
-                            isLider: perfil == 'lider',
+                    // Botão ver escala
+                    _buildActionButton(
+                      icon: Icons.calendar_month_rounded,
+                      label: "Ver escala do mês",
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ProximoMesPage(
+                              escala: turmaSelecionada,
+                              mes: mesSelecionado,
+                              ano: anoSelecionado,
+                              isLider: perfil == 'lider',
+                            ),
                           ),
-                        ),
-                      );
-                    },
-                    outlined: false,
-                  ),
-                ],
+                        );
+                      },
+                      outlined: false,
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -700,7 +808,7 @@ class _EscalaHomeState extends State<EscalaHome> with WidgetsBindingObserver {
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
                 color: selecionada
-                    ? AppColors.primary
+                    ? AppTheme.brandPurple
                     : Colors.white.withValues(alpha: 0.8),
                 letterSpacing: 0.5,
               ),
@@ -713,12 +821,14 @@ class _EscalaHomeState extends State<EscalaHome> with WidgetsBindingObserver {
 
   /// Card de status principal
   Widget _buildStatusCard(bool isEmbarcada) {
+    final cs = Theme.of(context).colorScheme;
+    final statusColors = context.statusColors;
     final Color statusColor = isEmbarcada
-        ? AppColors.embarked
-        : AppColors.offDuty;
+        ? statusColors.embarked
+        : statusColors.offDuty;
     final Color bgColor = isEmbarcada
-        ? AppColors.embarkedBg
-        : AppColors.offDutyBg;
+        ? statusColors.embarkedBg
+        : statusColors.offDutyBg;
     final IconData statusIcon = isEmbarcada
         ? Icons.directions_bus_filled_rounded
         : Icons.airline_seat_individual_suite_rounded;
@@ -727,15 +837,15 @@ class _EscalaHomeState extends State<EscalaHome> with WidgetsBindingObserver {
     final bool isDiaViagem =
         diaEspecial == "embarque" || diaEspecial == "desembarque";
     final Color viagemBannerColor = diaEspecial == "embarque"
-        ? const Color(0xFFFF6F00) // Laranja forte
-        : const Color(0xFF1565C0); // Azul
+        ? statusColors.travelDeparture
+        : statusColors.travelArrival;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 500),
       curve: Curves.easeInOut,
       width: double.infinity,
       decoration: BoxDecoration(
-        color: AppColors.card,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
@@ -817,7 +927,7 @@ class _EscalaHomeState extends State<EscalaHome> with WidgetsBindingObserver {
                             "Status atual",
                             style: TextStyle(
                               fontSize: 12,
-                              color: AppColors.textSecondary,
+                              color: cs.onSurfaceVariant,
                               fontWeight: FontWeight.w500,
                               letterSpacing: 0.5,
                             ),
@@ -842,6 +952,7 @@ class _EscalaHomeState extends State<EscalaHome> with WidgetsBindingObserver {
                         ],
                       ),
                     ),
+                    const SizedBox(width: 12),
                     // Badge com dias restantes
                     Container(
                       padding: const EdgeInsets.symmetric(
@@ -877,7 +988,7 @@ class _EscalaHomeState extends State<EscalaHome> with WidgetsBindingObserver {
                 ),
                 const SizedBox(height: 16),
                 // Divider sutil
-                Container(height: 1, color: Colors.grey.withValues(alpha: 0.1)),
+                Container(height: 1, color: Theme.of(context).dividerColor),
                 const SizedBox(height: 14),
                 // Data próxima mudança ou mensagem de viagem
                 Row(
@@ -887,7 +998,7 @@ class _EscalaHomeState extends State<EscalaHome> with WidgetsBindingObserver {
                       size: 16,
                       color: isDiaViagem
                           ? viagemBannerColor
-                          : AppColors.textSecondary,
+                          : cs.onSurfaceVariant,
                     ),
                     const SizedBox(width: 8),
                     Expanded(
@@ -901,7 +1012,7 @@ class _EscalaHomeState extends State<EscalaHome> with WidgetsBindingObserver {
                           fontSize: 13,
                           color: isDiaViagem
                               ? viagemBannerColor
-                              : AppColors.textSecondary,
+                              : cs.onSurfaceVariant,
                           fontWeight: isDiaViagem
                               ? FontWeight.w600
                               : FontWeight.w500,
@@ -920,14 +1031,15 @@ class _EscalaHomeState extends State<EscalaHome> with WidgetsBindingObserver {
 
   /// Título de seção
   Widget _buildSectionTitle(String title) {
+    final cs = Theme.of(context).colorScheme;
     return Align(
       alignment: Alignment.centerLeft,
       child: Text(
         title,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 18,
           fontWeight: FontWeight.w700,
-          color: AppColors.textPrimary,
+          color: cs.onSurface,
           letterSpacing: -0.3,
         ),
       ),
@@ -939,7 +1051,7 @@ class _EscalaHomeState extends State<EscalaHome> with WidgetsBindingObserver {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: AppColors.card,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -977,7 +1089,7 @@ class _EscalaHomeState extends State<EscalaHome> with WidgetsBindingObserver {
           Container(
             width: 1,
             height: 36,
-            color: Colors.grey.withValues(alpha: 0.15),
+            color: Theme.of(context).dividerColor,
           ),
           Expanded(
             flex: 1,
@@ -1010,6 +1122,7 @@ class _EscalaHomeState extends State<EscalaHome> with WidgetsBindingObserver {
     required List<DropdownMenuItem<T>> items,
     required ValueChanged<T?> onChanged,
   }) {
+    final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       child: DropdownButtonHideUnderline(
@@ -1021,7 +1134,7 @@ class _EscalaHomeState extends State<EscalaHome> with WidgetsBindingObserver {
           isExpanded: true,
           icon: Icon(
             Icons.keyboard_arrow_down_rounded,
-            color: AppColors.textSecondary,
+            color: cs.onSurfaceVariant,
             size: 20,
           ),
         ),
@@ -1036,6 +1149,7 @@ class _EscalaHomeState extends State<EscalaHome> with WidgetsBindingObserver {
     required VoidCallback onPressed,
     required bool outlined,
   }) {
+    final cs = Theme.of(context).colorScheme;
     if (outlined) {
       return SizedBox(
         width: double.infinity,
@@ -1044,9 +1158,9 @@ class _EscalaHomeState extends State<EscalaHome> with WidgetsBindingObserver {
           icon: Icon(icon, size: 16),
           label: Text(label),
           style: OutlinedButton.styleFrom(
-            foregroundColor: AppColors.primaryLight,
+            foregroundColor: cs.primary,
             side: BorderSide(
-              color: AppColors.primaryLight.withValues(alpha: 0.3),
+              color: cs.primary.withValues(alpha: 0.3),
               width: 1.2,
             ),
             shape: RoundedRectangleBorder(
@@ -1070,7 +1184,9 @@ class _EscalaHomeState extends State<EscalaHome> with WidgetsBindingObserver {
         icon: Icon(icon, size: 18),
         label: Text(label),
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primary,
+          backgroundColor: cs.brightness == Brightness.dark
+              ? AppTheme.brandPurpleLight
+              : AppTheme.brandPurple,
           foregroundColor: Colors.white,
           elevation: 0,
           shape: RoundedRectangleBorder(
